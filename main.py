@@ -22,8 +22,6 @@ def load_tasks(filename: str) -> list[dict]:
     tasks: list[dict] = []
 
     with open(filename, "r", encoding="utf-8") as file:
-        next(file)  # saltar encabezado
-
         for line in file:
             line = line.strip()
             if not line:
@@ -39,7 +37,6 @@ def load_tasks(filename: str) -> list[dict]:
 
     return tasks
 
-
 def load_resources(filename: str) -> list[dict]:
     """
     Lee recursos desde archivo y los retorna como lista de diccionarios.
@@ -48,8 +45,6 @@ def load_resources(filename: str) -> list[dict]:
     resources: list[dict] = []
 
     with open(filename, "r", encoding="utf-8") as file:
-        next(file)  # saltar encabezado
-
         for line in file:
             line = line.strip()
             if not line:
@@ -189,7 +184,135 @@ def print_analysis(tasks: list[dict], resources: list[dict], instance: str) -> N
         for task_id in tasks_without_resource:
             print(f"- {task_id}")
     else:
-        print("Todas las tareas tienen al menos un recurso compatible.")
+        print("Todas las tareas tienen al menos un recurso compatible.")       
+
+
+def sort_tasks_by_duration(tasks: list[dict]) -> list[dict]:
+    """
+    Ordena las tareas de mayor a menor duración.
+    Complejidad: O(n log n)
+    """
+    return sorted(tasks, key=lambda task: task["duration"], reverse=True)
+
+
+def initialize_resource_loads(resources: list[dict]) -> dict[str, int]:
+    """
+    Inicializa la carga de cada recurso en 0.
+    """
+    resource_loads: dict[str, int] = {}
+
+    for resource in resources:
+        resource_loads[resource["id"]] = 0
+
+    return resource_loads
+
+
+def select_least_loaded_compatible_resource(
+    task: dict, resources: list[dict], resource_loads: dict[str, int]
+) -> dict:
+    """
+    Selecciona el recurso compatible con menor carga actual.
+    Si no existe recurso compatible, lanza error.
+    Complejidad por tarea: O(m)
+    """
+    selected_resource: dict | None = None
+    selected_load: int | None = None
+
+    for resource in resources:
+        if task["category"] not in resource["categories"]:
+            continue
+
+        current_load = resource_loads[resource["id"]]
+
+        if selected_resource is None or current_load < selected_load:
+            selected_resource = resource
+            selected_load = current_load
+
+    if selected_resource is None:
+        raise ValueError(
+            f"La tarea {task['id']} no tiene recursos compatibles."
+        )
+
+    return selected_resource
+
+
+def schedule_tasks(tasks: list[dict], resources: list[dict]) -> tuple[list[dict], dict[str, int], int]:
+    """
+    Construye una planificación greedy:
+    - ordena tareas por duración descendente
+    - asigna cada tarea al recurso compatible menos cargado
+
+    Retorna:
+    - lista de asignaciones
+    - cargas finales por recurso
+    - makespan final
+    """
+    sorted_tasks = sort_tasks_by_duration(tasks)
+    resource_loads = initialize_resource_loads(resources)
+    assignments: list[dict] = []
+
+    for task in sorted_tasks:
+        resource = select_least_loaded_compatible_resource(task, resources, resource_loads)
+
+        resource_id = resource["id"]
+        start_time = resource_loads[resource_id]
+        end_time = start_time + task["duration"]
+
+        assignment = {
+            "task_id": task["id"],
+            "resource_id": resource_id,
+            "start": start_time,
+            "end": end_time,
+            "duration": task["duration"],
+            "category": task["category"],
+        }
+        assignments.append(assignment)
+
+        resource_loads[resource_id] = end_time
+
+    makespan = max(resource_loads.values()) if resource_loads else 0
+
+    return assignments, resource_loads, makespan
+
+
+def print_schedule(assignments: list[dict], resource_loads: dict[str, int], makespan: int) -> None:
+    """
+    Imprime la planificación generada.
+    """
+    print("\n=== PLANIFICACIÓN GREEDY ===")
+    print("\n--- ASIGNACIONES ---")
+
+    for assignment in assignments:
+        print(
+            f"{assignment['task_id']} | "
+            f"recurso={assignment['resource_id']} | "
+            f"inicio={assignment['start']} | "
+            f"fin={assignment['end']} | "
+            f"duración={assignment['duration']}"
+        )
+
+    print("\n--- CARGA FINAL POR RECURSO ---")
+    for resource_id, load in sorted(resource_loads.items()):
+        print(f"{resource_id}: {load}")
+
+    print("\n--- MAKESPAN ---")
+    print(f"Makespan final: {makespan}")
+
+
+def write_output(assignments: list[dict], filename: str = "output.txt") -> None:
+    """
+    Escribe la solución en formato de salida:
+    ID_Tarea,ID_Recurso,Tiempo_Inicio,Tiempo_Fin
+    """
+    with open(filename, "w", encoding="utf-8") as file:
+        for assignment in assignments:
+            line = (
+                f"{assignment['task_id']},"
+                f"{assignment['resource_id']},"
+                f"{assignment['start']},"
+                f"{assignment['end']}\n"
+            )
+            file.write(line)
 
 
 def main() -> None:
@@ -210,6 +333,13 @@ def main() -> None:
     resources = load_resources(resources_file)
 
     print_analysis(tasks, resources, instance)
+
+    assignments, resource_loads, makespan = schedule_tasks(tasks, resources)
+
+    print_schedule(assignments, resource_loads, makespan)
+    write_output(assignments)
+
+    print("\nSe generó el archivo output.txt")
 
 
 if __name__ == "__main__":
