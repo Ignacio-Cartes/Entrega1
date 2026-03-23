@@ -2,13 +2,10 @@ import sys
 from typing import List, Dict, Tuple, Set
 
 
-def get_instance_files(instance: str) -> Tuple[str, str]:
-    if instance == "1":
-        return "tareas.txt", "recursos.txt"
-    elif instance == "2":
-        return "tareas_2.txt", "recursos_2.txt"
-    else:
-        raise ValueError("Instancia no válida. Usa '1' o '2'.")
+TASKS_FILE = "tareas_EP.txt"
+RESOURCES_FILE = "recursos_EP.txt"
+INSTANCE_NAME = "EP"
+OUTPUT_FILE = "output_EP.txt"
 
 
 def load_tasks(filename: str) -> List[Dict]:
@@ -319,56 +316,38 @@ def write_output(assignments: List[Dict], filename: str) -> None:
             )
 
 
-def process_instance(instance: str, objective_makespan: int) -> None:
-    tasks_file, resources_file = get_instance_files(instance)
+def process_instance(objective_makespan: int) -> None:
+    tasks = load_tasks(TASKS_FILE)
+    resources = load_resources(RESOURCES_FILE)
 
-    tasks = load_tasks(tasks_file)
-    resources = load_resources(resources_file)
-
-    print_analysis(tasks, resources, instance)
+    print_analysis(tasks, resources, INSTANCE_NAME)
 
     assignments, resource_loads, makespan = schedule_tasks(tasks, resources)
 
-    print_schedule(assignments, resource_loads, makespan, instance, objective_makespan)
+    print_schedule(assignments, resource_loads, makespan, INSTANCE_NAME, objective_makespan)
 
-    output_filename = "output_{}.txt".format(instance)
-    write_output(assignments, output_filename)
+    write_output(assignments, OUTPUT_FILE)
 
-    print("\nSe generó el archivo {}".format(output_filename))
+    print("\nSe generó el archivo {}".format(OUTPUT_FILE))
 
 
 def main() -> None:
-    if len(sys.argv) == 2:
-        try:
-            makespan_1 = int(sys.argv[1])
-        except ValueError:
-            print("Uso para una instancia: python main.py <makespan_instancia_1>")
-            return
-
-        try:
-            process_instance("1", makespan_1)
-        except ValueError as error:
-            print(error)
+    if len(sys.argv) != 2:
+        print("Uso:")
+        print("  python main.py <makespan_objetivo>")
         return
 
-    if len(sys.argv) == 3:
-        try:
-            makespan_1 = int(sys.argv[1])
-            makespan_2 = int(sys.argv[2])
-        except ValueError:
-            print("Uso para ambas instancias: python main.py <makespan_1> <makespan_2>")
-            return
-
-        try:
-            process_instance("1", makespan_1)
-            process_instance("2", makespan_2)
-        except ValueError as error:
-            print(error)
+    try:
+        objective_makespan = int(sys.argv[1])
+    except ValueError:
+        print("Uso:")
+        print("  python main.py <makespan_objetivo>")
         return
 
-    print("Uso:")
-    print("  python main.py <makespan_instancia_1>")
-    print("  python main.py <makespan_instancia_1> <makespan_instancia_2>")
+    try:
+        process_instance(objective_makespan)
+    except ValueError as error:
+        print(error)
 
 
 if __name__ == "__main__":
